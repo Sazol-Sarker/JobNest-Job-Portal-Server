@@ -1,7 +1,7 @@
 const express = require("express");
 require("dotenv").config();
 
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const cors = require("cors");
 const app = express();
 const port = process.env.PORT || 5000;
@@ -29,35 +29,120 @@ async function run() {
     await client.connect();
 
     // DATABASE+Collection
-    const jobsCategory=client.db('JobPortalDB').collection('JobsBrowseCategoryCollection')
-    const jobs=client.db('JobPortalDB').collection('JobsCollection')
-    
-
+    const jobsCategory = client
+      .db("JobPortalDB")
+      .collection("JobsBrowseCategoryCollection");
+    const jobs = client.db("JobPortalDB").collection("JobsCollection");
+    const users = client.db("JobPortalDB").collection("UsersCollection");
+    const appliedJobs = client
+      .db("JobPortalDB")
+      .collection("AppliedJobsCollection");
 
     // ALL APIs here (jobsCategory collection)
-   
 
-    app.get('/jobCategories',async(req,res)=>{
-        const cursor=jobsCategory.find()
-        const result=await cursor.toArray()
-        // console.log(result);
-        res.send(result)
+    app.get("/jobCategories", async (req, res) => {
+      const cursor = jobsCategory.find();
+      const result = await cursor.toArray();
+      // console.log(result);
+      res.send(result);
+    });
+
+    // ALL APIs here (jobs collection)
+    app.get("/hotJob/:category", async (req, res) => {
+      const category = req.params.category;
+      const query = { category: category };
+      const cursor = jobs.find(query);
+      const result = await cursor.toArray();
+
+      res.send(result);
+    });
+
+    app.get("/jobs/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await jobs.findOne(query);
+      res.send(result);
+    });
+
+    // ALL APIs here (users collection)
+
+    // POST API: create user
+    app.post("/users", async (req, res) => {
+      const newUser = req.body;
+      console.log("New user data", newUser);
+      const result = await users.insertOne(newUser);
+      res.send(result);
+    });
+
+    // GET api: find/fetch user by email
+    app.get('/users/:email',async(req,res)=>{
+      const email=req.params.email 
+      const query={email:email}
+      const result=await users.findOne(query)
+      res.send(result)
+    })
+    // app.get('/appliedJobs/:email',async(req,res)=>{
+    app.get('/appliedJobs',async(req,res)=>{
+      // const email=req.params.email 
+      // const query={email:email}
+      const cursor= appliedJobs.find()
+      const result=await cursor.toArray()
+      console.log(result);
+      res.send(result)
     })
 
+    // **************appliedJob Collection************
+    // Duplicate data entry into DB-> thus avoiding
+    // app.post('/appliedJob',async(req,res)=>{
+    //   const appliedJob=req.body
+    //   const result=await appliedJobs.insertOne(appliedJob)
+    //   res.send(result)
 
-     // ALL APIs here (jobsCategory collection)
-     app.get('/hotJob/:category',async(req,res)=>{
-      const category=req.params.category
-      const query ={category:category}
-      const cursor =jobs.find(query)
-      const result=await cursor.toArray()
+    // })
 
-      res.send(result)
-     })
+    app.put("/appliedJob", async (req, res) => {
+      const appliedJob = req.body;
+      console.log(appliedJob);
+      const {
+        applicant_email,
+        company_name,
+        company_location,
+        job_title,
+        jobType,
+      } = appliedJob;
 
+      // const filter = {
+      //   ...appliedJob
+      // };
 
+      const filter = {
+        applicant_email: applicant_email,
+        company_name: company_name,
+        company_location: company_location,
+        job_title:job_title,
+        jobType: jobType
+      };
 
-    /*********************/ 
+      const newAppliedJob = {
+        $set: {
+          applicant_email: applicant_email,
+          company_name: company_name,
+          company_location: company_location,
+          job_title: job_title,
+          jobType: jobType,
+        },
+      };
+
+     
+      const options = { upsert: true };
+      const result = await appliedJobs.updateOne(
+        filter,newAppliedJob,
+        options
+      );
+      res.send(result);
+    });
+
+    /*********************/
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
