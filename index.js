@@ -1,14 +1,19 @@
 const express = require("express");
 require("dotenv").config();
-
+const jwt = require("jsonwebtoken");
+const cookieParser = require("cookie-parser");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const cors = require("cors");
 const app = express();
 const port = process.env.PORT || 5000;
 
 // MIDDLEWARE
-app.use(cors());
+app.use(cors({
+  origin:['http://localhost:5173'],
+  credentials:true
+}));
 app.use(express.json());
+app.use(cookieParser());
 
 // MONGODB Connection
 
@@ -37,6 +42,23 @@ async function run() {
     const appliedJobs = client
       .db("JobPortalDB")
       .collection("AppliedJobsCollection");
+
+    // AUTH APIs here + jwt
+    app.post("/jwt", (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "24h",
+      });
+
+      res
+        .cookie("token", token, { httpOnly: true, secure: false  })
+        .send({ success: "Logged In with jwt cookie" });
+    });
+
+    app.post('/logout',(req,res)=>{
+      res.clearCookie('token',{httpOnly:true,secure:false})
+      res.send({ message: 'Logged out successfully' });
+    })
 
     // ALL APIs here (jobsCategory collection)
 
@@ -69,27 +91,27 @@ async function run() {
     // POST API: create user
     app.post("/users", async (req, res) => {
       const newUser = req.body;
-      console.log("New user data", newUser);
+      // console.log("New user data", newUser);
       const result = await users.insertOne(newUser);
       res.send(result);
     });
 
     // GET api: find/fetch user by email
-    app.get('/users/:email',async(req,res)=>{
-      const email=req.params.email 
-      const query={email:email}
-      const result=await users.findOne(query)
-      res.send(result)
-    })
+    app.get("/users/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await users.findOne(query);
+      res.send(result);
+    });
     // app.get('/appliedJobs/:email',async(req,res)=>{
-    app.get('/appliedJobs',async(req,res)=>{
-      // const email=req.params.email 
+    app.get("/appliedJobs", async (req, res) => {
+      // const email=req.params.email
       // const query={email:email}
-      const cursor= appliedJobs.find()
-      const result=await cursor.toArray()
-      console.log(result);
-      res.send(result)
-    })
+      const cursor = appliedJobs.find();
+      const result = await cursor.toArray();
+      // console.log(result);
+      res.send(result);
+    });
 
     // **************appliedJob Collection************
     // Duplicate data entry into DB-> thus avoiding
@@ -102,7 +124,7 @@ async function run() {
 
     app.put("/appliedJob", async (req, res) => {
       const appliedJob = req.body;
-      console.log(appliedJob);
+      // console.log(appliedJob);
       const {
         applicant_email,
         company_name,
@@ -119,8 +141,8 @@ async function run() {
         applicant_email: applicant_email,
         company_name: company_name,
         company_location: company_location,
-        job_title:job_title,
-        jobType: jobType
+        job_title: job_title,
+        jobType: jobType,
       };
 
       const newAppliedJob = {
@@ -133,10 +155,10 @@ async function run() {
         },
       };
 
-     
       const options = { upsert: true };
       const result = await appliedJobs.updateOne(
-        filter,newAppliedJob,
+        filter,
+        newAppliedJob,
         options
       );
       res.send(result);
