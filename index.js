@@ -10,16 +10,40 @@ const port = process.env.PORT || 5000;
 // MIDDLEWARE
 app.use(
   cors({
+    
     origin: [
       "http://localhost:5173",
-      "https://jobnest-job-portal.web.app",
-      "https://jobnest-job-portal.firebaseapp.com"
+      "https://jobnest-job-portal.web.app/",
+      "https://jobnest-job-portal.firebaseapp.com/"
     ],
     credentials: true,
   })
 );
 app.use(express.json());
 app.use(cookieParser());
+
+// RESTRICT UNAUTHORIZED api data access except legal user
+// middleware for jwt token verification
+const verifyToken=(req,res,next)=>{
+const token=req.cookies?.token;
+// console.log("Token in verifyTOKEN=>",token);
+if(!token)
+{
+  return res.status(401).send({message:'Unauthorized access denied'})
+}
+
+jwt.verify(token,process.env.ACCESS_TOKEN_SECRET,(err,decoded)=>{
+  if(err)
+  {
+    return res.status(401).send({message:'Unauthorized akcesss!!'})
+  }
+
+  req.user=decoded 
+
+  next()
+})
+
+}
 
 // MONGODB Connection
 
@@ -51,20 +75,30 @@ async function run() {
 
     // AUTH APIs here + jwt
     app.post("/jwt", (req, res) => {
-      const user = req.body;
+      const user = req?.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
         expiresIn: "24h",
       });
+      // console.log("In JWT=>",token);
 
       res
-        .cookie("token", token, { httpOnly: true, secure: process.env.NODE_ENV === "production",
-          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict" })
+        .cookie("token", token, {
+          httpOnly: true,
+          // secure: false,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+        })
         .send({ success: "Logged In with jwt cookie" });
     });
 
     app.post("/logout", (req, res) => {
-      res.clearCookie("token", { httpOnly: true, secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "strict" });
+      // console.log("Executing logoout");
+      res.clearCookie("token", {
+        httpOnly: true,
+        // secure: false,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+      })
       res.send({ message: "Logged out successfully" });
     });
 
@@ -81,8 +115,7 @@ async function run() {
     app.get("/hotJob/:category", async (req, res) => {
       const category = req.params.category;
       const query = { category: category };
-      const cursor = jobs.find(query);
-      const result = await cursor.toArray();
+      const result = await jobs.find(query).toArray();
 
       res.send(result);
     });
@@ -112,12 +145,29 @@ async function run() {
       res.send(result);
     });
     // app.get('/appliedJobs/:email',async(req,res)=>{
-    app.get("/appliedJobs", async (req, res) => {
+    app.get("/appliedJobs",verifyToken, async (req, res) => {
       // const email=req.params.email
-      // const query={email:email}
-      const cursor = appliedJobs.find();
-      const result = await cursor.toArray();
-      // console.log(result);
+      const email = req.query?.email;
+      // console.log("", req.query?.email);
+      // console.log("QUERY EMAIL=>", req.query?.email);
+      // const email = 'mevevor916@oziere.com';
+      // console.log(
+      //   "req.query?.email + req.user.email",
+      //   req.query?.email,
+      //   req.user?.email
+      // );
+      // if user does not call the api, no access to data
+      if (email !== req.user.email) {
+        return res
+          .status(401)
+          .send({ msg: "User Token wrong, Unauthorised access" });
+      }
+
+      // console.log('req.query.email=>',email);
+      const query = { applicant_email: email };
+
+      const result = await appliedJobs.find(query).toArray();
+      //  console.log(result);
       res.send(result);
     });
 
