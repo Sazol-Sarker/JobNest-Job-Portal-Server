@@ -13,8 +13,8 @@ app.use(
     
     origin: [
       "http://localhost:5173",
-      "https://jobnest-job-portal.web.app/",
-      "https://jobnest-job-portal.firebaseapp.com/"
+      "https://jobnest-job-portal.web.app",
+      "https://jobnest-job-portal.firebaseapp.com"
     ],
     credentials: true,
   })
@@ -26,16 +26,17 @@ app.use(cookieParser());
 // middleware for jwt token verification
 const verifyToken=(req,res,next)=>{
 const token=req.cookies?.token;
-// console.log("Token in verifyTOKEN=>",token);
+console.log("Token in verifyTOKEN=>",token);
 if(!token)
 {
-  return res.status(401).send({message:'Unauthorized access denied'})
+  return res.status(401).send({message:'Unauthorized ++ access denied'})
 }
 
 jwt.verify(token,process.env.ACCESS_TOKEN_SECRET,(err,decoded)=>{
   if(err)
   {
-    return res.status(401).send({message:'Unauthorized akcesss!!'})
+    console.error("JWT Verification Error:", err.message); // Log error for debugging
+    return res.status(401).send({message:"Forbidden: Invalid token"})
   }
 
   req.user=decoded 
@@ -47,7 +48,7 @@ jwt.verify(token,process.env.ACCESS_TOKEN_SECRET,(err,decoded)=>{
 
 // MONGODB Connection
 
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.uomr8.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.uomr8.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -79,14 +80,14 @@ async function run() {
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
         expiresIn: "24h",
       });
-      // console.log("In JWT=>",token);
+      console.log("In JWT=>",token);
 
       res
         .cookie("token", token, {
           httpOnly: true,
-          // secure: false,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+          secure: false,
+          // secure: process.env.NODE_ENV === "production",
+          // sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
         })
         .send({ success: "Logged In with jwt cookie" });
     });
@@ -95,9 +96,9 @@ async function run() {
       // console.log("Executing logoout");
       res.clearCookie("token", {
         httpOnly: true,
-        // secure: false,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+        secure: false,
+        // secure: process.env.NODE_ENV === "production",
+        // sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
       })
       res.send({ message: "Logged out successfully" });
     });
@@ -221,6 +222,18 @@ async function run() {
       );
       res.send(result);
     });
+
+    // DELETE a appliedjob
+    app.delete('/appliedJob/:id',async(req,res)=>{
+      const id=req.params.id;
+      console.log(id);
+      const query={_id:new ObjectId(id)}
+
+      const result=await appliedJobs.deleteOne(query)
+
+      res.send(result)
+      // res.send([])
+    })
 
     /*********************/
 
