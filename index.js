@@ -26,7 +26,7 @@ app.use(cookieParser());
 // middleware for jwt token verification
 const verifyToken=(req,res,next)=>{
 const token=req.cookies?.token;
-console.log("Token in verifyTOKEN=>",token);
+// console.log("Token in verifyTOKEN=>",token);
 if(!token)
 {
   return res.status(401).send({message:'Unauthorized ++ access denied'})
@@ -62,7 +62,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    // await client.connect();
+    await client.connect();
 
     // DATABASE+Collection
     const jobsCategory = client
@@ -70,9 +70,7 @@ async function run() {
       .collection("JobsBrowseCategoryCollection");
     const jobs = client.db("JobPortalDB").collection("JobsCollection");
     const users = client.db("JobPortalDB").collection("UsersCollection");
-    const appliedJobs = client
-      .db("JobPortalDB")
-      .collection("AppliedJobsCollection");
+    const appliedJobs = client.db("JobPortalDB").collection("AppliedJobsCollection");
 
     // AUTH APIs here + jwt
     app.post("/jwt", (req, res) => {
@@ -80,7 +78,7 @@ async function run() {
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
         expiresIn: "24h",
       });
-      console.log("In JWT=>",token);
+      // console.log("In JWT=>",token);
 
       res
         .cookie("token", token, {
@@ -113,20 +111,63 @@ async function run() {
     });
 
     // ALL APIs here (jobs collection)
+    // GET API- JOB by category
     app.get("/hotJob/:category", async (req, res) => {
       const category = req.params.category;
       const query = { category: category };
       const result = await jobs.find(query).toArray();
-
+      
       res.send(result);
     });
-
+    
+    // GET API- JOB by ID
     app.get("/jobs/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await jobs.findOne(query);
       res.send(result);
     });
+    // GET API- JOBS POSTED by HR EMAIL
+    // app.get('/jobs/postByHr',async(req,res)=>{
+    //   const email=req.query.email
+    //   console.log(email);
+    //   const query={hr_email:email}
+    //   const result=await jobs.find(query).toArray()
+    //   console.log(result);
+    //   res.send(result)
+    //   // res.send([])
+    // })
+
+    app.get('/jobs/postByHr/:email', async (req, res) => {
+      // const email = "mexejaf293@eligou.com";
+      // const email = req.query.email;
+      const email = req.params.email;
+      // console.log(email);
+      const result = await jobs.find({ hr_email: email }).toArray();
+      // console.log(result);
+      // res.send([])
+      res.send(result)
+    
+    });
+
+    // POST API- create a job
+    app.post('/jobs/new',async(req,res)=>{
+      const newJob=req.body ;
+      // console.log(newJob);
+
+      const result=await jobs.insertOne(newJob);
+
+      res.send(result)
+    })
+
+    // DELETE API- delete a job - HR
+    app.delete('/jobs/:id',async(req,res)=>{
+      const id=req.params.id;
+      // console.log(id);
+      const query={_id:new ObjectId(id)}
+      const result=await jobs.deleteOne(query)
+      res.send(result)
+    })
 
     // ALL APIs here (users collection)
 
