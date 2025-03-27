@@ -10,11 +10,10 @@ const port = process.env.PORT || 5000;
 // MIDDLEWARE
 app.use(
   cors({
-    
     origin: [
       "http://localhost:5173",
       "https://jobnest-job-portal.web.app",
-      "https://jobnest-job-portal.firebaseapp.com"
+      "https://jobnest-job-portal.firebaseapp.com",
     ],
     credentials: true,
   })
@@ -24,27 +23,24 @@ app.use(cookieParser());
 
 // RESTRICT UNAUTHORIZED api data access except legal user
 // middleware for jwt token verification
-const verifyToken=(req,res,next)=>{
-const token=req.cookies?.token;
-// console.log("Token in verifyTOKEN=>",token);
-if(!token)
-{
-  return res.status(401).send({message:'Unauthorized ++ access denied'})
-}
-
-jwt.verify(token,process.env.ACCESS_TOKEN_SECRET,(err,decoded)=>{
-  if(err)
-  {
-    console.error("JWT Verification Error:", err.message); // Log error for debugging
-    return res.status(401).send({message:"Forbidden: Invalid token"})
+const verifyToken = (req, res, next) => {
+  const token = req.cookies?.token;
+  // console.log("Token in verifyTOKEN=>",token);
+  if (!token) {
+    return res.status(401).send({ message: "Unauthorized ++ access denied" });
   }
 
-  req.user=decoded 
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+    if (err) {
+      console.error("JWT Verification Error:", err.message); // Log error for debugging
+      return res.status(401).send({ message: "Forbidden: Invalid token" });
+    }
 
-  next()
-})
+    req.user = decoded;
 
-}
+    next();
+  });
+};
 
 // MONGODB Connection
 
@@ -70,7 +66,9 @@ async function run() {
       .collection("JobsBrowseCategoryCollection");
     const jobs = client.db("JobPortalDB").collection("JobsCollection");
     const users = client.db("JobPortalDB").collection("UsersCollection");
-    const appliedJobs = client.db("JobPortalDB").collection("AppliedJobsCollection");
+    const appliedJobs = client
+      .db("JobPortalDB")
+      .collection("AppliedJobsCollection");
 
     // AUTH APIs here + jwt
     app.post("/jwt", (req, res) => {
@@ -97,7 +95,7 @@ async function run() {
         secure: false,
         // secure: process.env.NODE_ENV === "production",
         // sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
-      })
+      });
       res.send({ message: "Logged out successfully" });
     });
 
@@ -113,44 +111,56 @@ async function run() {
     // ALL APIs here (jobs collection)
 
     // PATCH job status
-    app.patch('/jobs',async(req,res)=>{
-      const id=req.query?.id 
-      
-      const query={_id:new ObjectId(id)}
-      console.log(id);
+    app.patch("/jobs", async (req, res) => {
+      const id = req.query?.id;
+
+      const query = { _id: new ObjectId(id) };
+      // console.log(id);
       const updateDoc = {
         $set: {
-          status:"Expired"
+          status: "Expired",
         },
       };
-      const result=await jobs.updateOne(query,updateDoc)
-      res.send(result)
-    })
+      const result = await jobs.updateOne(query, updateDoc);
+      res.send(result);
+    });
 
     // GET API- JOB by category
     app.get("/hotJob/:category", async (req, res) => {
       const category = req.params.category;
       const query = { category: category };
       const result = await jobs.find(query).toArray();
-      
+
       res.send(result);
     });
     // GET API:jobs=> all jobs
-    app.get('/jobs',async(req,res)=>{
+    app.get("/jobs", async (req, res) => {
       // if(req.query.sort)
       // const query={sort:req.query.sort}
-      const sort=req.query?.sort
-      const searchText=req.query?.searchText
+      const sort = req.query?.sort;
+      const searchText = req.query?.searchText;
+      const minSalary = req.query?.minSalary;
+      const maxSalary = req.query?.maxSalary;
+      // console.log(minSalary,maxSalary);
 
-      let query={}
-      if(searchText)
-        query.location={ $regex: searchText, $options: 'i' };
-      const sortOrder = sort=="true" ? -1 : 1;
-      const sortQuery={'salaryRange.min':sortOrder}
-      const result=await jobs.find(query).sort(sortQuery).toArray()
-      res.send(result)
-    })
-    
+      let query = {};
+
+      if (searchText) query.location = { $regex: searchText, $options: "i" };
+      const sortOrder = sort == "true" ? -1 : 1;
+      const sortQuery = { "salaryRange.min": sortOrder };
+
+      if (minSalary && maxSalary) {
+        query = {
+          ...query,
+          "salaryRange.min":{$gte: parseInt(minSalary)},
+          "salaryRange.max":{$lte: parseInt(maxSalary)},
+        };
+      }
+
+      const result = await jobs.find(query).sort(sortQuery).toArray();
+      res.send(result);
+    });
+
     // GET API- JOB by ID
     app.get("/jobs/:id", async (req, res) => {
       const id = req.params.id;
@@ -169,7 +179,7 @@ async function run() {
     //   // res.send([])
     // })
 
-    app.get('/jobs/postByHr/:email', async (req, res) => {
+    app.get("/jobs/postByHr/:email", async (req, res) => {
       // const email = "mexejaf293@eligou.com";
       // const email = req.query.email;
       const email = req.params.email;
@@ -177,28 +187,27 @@ async function run() {
       const result = await jobs.find({ hr_email: email }).toArray();
       // console.log(result);
       // res.send([])
-      res.send(result)
-    
+      res.send(result);
     });
 
     // POST API- create a job
-    app.post('/jobs/new',async(req,res)=>{
-      const newJob=req.body ;
+    app.post("/jobs/new", async (req, res) => {
+      const newJob = req.body;
       // console.log(newJob);
 
-      const result=await jobs.insertOne(newJob);
+      const result = await jobs.insertOne(newJob);
 
-      res.send(result)
-    })
+      res.send(result);
+    });
 
     // DELETE API- delete a job - HR
-    app.delete('/jobs/:id',async(req,res)=>{
-      const id=req.params.id;
+    app.delete("/jobs/:id", async (req, res) => {
+      const id = req.params.id;
       // console.log(id);
-      const query={_id:new ObjectId(id)}
-      const result=await jobs.deleteOne(query)
-      res.send(result)
-    })
+      const query = { _id: new ObjectId(id) };
+      const result = await jobs.deleteOne(query);
+      res.send(result);
+    });
 
     // ALL APIs here (users collection)
 
@@ -218,7 +227,7 @@ async function run() {
       res.send(result);
     });
     // app.get('/appliedJobs/:email',async(req,res)=>{
-    app.get("/appliedJobs",verifyToken, async (req, res) => {
+    app.get("/appliedJobs", verifyToken, async (req, res) => {
       // const email=req.params.email
       const email = req.query?.email;
       // console.log("", req.query?.email);
@@ -244,21 +253,21 @@ async function run() {
       res.send(result);
     });
 
-     // target: X applied API, fix later
+    // target: X applied API, fix later
     // count applicants by jobpost  /${hr_email}/${title}/${company}/${applicationDeadline}
-    app.get('/appliedJobsCount',async(req,res)=>{
-    // app.get('/appliedJobs/:hr_email/:company_name/:job_title/:applicationDeadline',async(req,res)=>{
-      // const 
+    app.get("/appliedJobsCount", async (req, res) => {
+      // app.get('/appliedJobs/:hr_email/:company_name/:job_title/:applicationDeadline',async(req,res)=>{
+      // const
       // console.log(req.query);
-      const {company_name,job_title,company_location,jobType}=req.query
+      const { company_name, job_title, company_location, jobType } = req.query;
       // const {hr_email,company_name,job_title,applicationDeadline}=req.params
       // const query={company_name,job_title,company_location,jobType}
-      const query={company_name,job_title}
-      const result=await appliedJobs.find(query).toArray()
+      const query = { company_name, job_title };
+      const result = await appliedJobs.find(query).toArray();
       // const result=await appliedJobs.countDocuments(query)
       // console.log(result);
-      res.send(result)
-    })
+      res.send(result);
+    });
 
     // **************appliedJob Collection************
     // Duplicate data entry into DB-> thus avoiding
@@ -312,16 +321,16 @@ async function run() {
     });
 
     // DELETE a appliedjob
-    app.delete('/appliedJob/:id',async(req,res)=>{
-      const id=req.params.id;
-      console.log(id);
-      const query={_id:new ObjectId(id)}
+    app.delete("/appliedJob/:id", async (req, res) => {
+      const id = req.params.id;
+      // console.log(id);
+      const query = { _id: new ObjectId(id) };
 
-      const result=await appliedJobs.deleteOne(query)
+      const result = await appliedJobs.deleteOne(query);
 
-      res.send(result)
+      res.send(result);
       // res.send([])
-    })
+    });
 
     /*********************/
 
