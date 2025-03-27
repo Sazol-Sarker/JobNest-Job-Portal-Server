@@ -111,6 +111,22 @@ async function run() {
     });
 
     // ALL APIs here (jobs collection)
+
+    // PATCH job status
+    app.patch('/jobs',async(req,res)=>{
+      const id=req.query?.id 
+      
+      const query={_id:new ObjectId(id)}
+      console.log(id);
+      const updateDoc = {
+        $set: {
+          status:"Expired"
+        },
+      };
+      const result=await jobs.updateOne(query,updateDoc)
+      res.send(result)
+    })
+
     // GET API- JOB by category
     app.get("/hotJob/:category", async (req, res) => {
       const category = req.params.category;
@@ -123,9 +139,15 @@ async function run() {
     app.get('/jobs',async(req,res)=>{
       // if(req.query.sort)
       // const query={sort:req.query.sort}
-      const sortOrder = req.query.sort=="true" ? -1 : 1;
+      const sort=req.query?.sort
+      const searchText=req.query?.searchText
+
+      let query={}
+      if(searchText)
+        query.location={ $regex: searchText, $options: 'i' };
+      const sortOrder = sort=="true" ? -1 : 1;
       const sortQuery={'salaryRange.min':sortOrder}
-      const result=await jobs.find().sort(sortQuery).toArray()
+      const result=await jobs.find(query).sort(sortQuery).toArray()
       res.send(result)
     })
     
