@@ -119,6 +119,15 @@ async function run() {
       
       res.send(result);
     });
+    // GET API:jobs=> all jobs
+    app.get('/jobs',async(req,res)=>{
+      // if(req.query.sort)
+      // const query={sort:req.query.sort}
+      const sortOrder = req.query.sort=="true" ? -1 : 1;
+      const sortQuery={'salaryRange.min':sortOrder}
+      const result=await jobs.find().sort(sortQuery).toArray()
+      res.send(result)
+    })
     
     // GET API- JOB by ID
     app.get("/jobs/:id", async (req, res) => {
