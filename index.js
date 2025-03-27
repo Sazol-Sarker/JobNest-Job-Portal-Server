@@ -213,6 +213,22 @@ async function run() {
       res.send(result);
     });
 
+     // target: X applied API, fix later
+    // count applicants by jobpost  /${hr_email}/${title}/${company}/${applicationDeadline}
+    app.get('/appliedJobsCount',async(req,res)=>{
+    // app.get('/appliedJobs/:hr_email/:company_name/:job_title/:applicationDeadline',async(req,res)=>{
+      // const 
+      // console.log(req.query);
+      const {company_name,job_title,company_location,jobType}=req.query
+      // const {hr_email,company_name,job_title,applicationDeadline}=req.params
+      // const query={company_name,job_title,company_location,jobType}
+      const query={company_name,job_title}
+      const result=await appliedJobs.find(query).toArray()
+      // const result=await appliedJobs.countDocuments(query)
+      // console.log(result);
+      res.send(result)
+    })
+
     // **************appliedJob Collection************
     // Duplicate data entry into DB-> thus avoiding
     // app.post('/appliedJob',async(req,res)=>{
