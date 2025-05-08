@@ -110,6 +110,18 @@ async function run() {
 
     // ALL APIs here (jobs collection)
 
+    // put job by id
+    app.put('/jobs/:id',async(req,res)=>{
+      const query={_id:new ObjectId(req.params.id)}
+      const updData={
+        $set:req.body
+      }
+      const result=await jobs.updateOne(query,updData)
+
+      res.send(result)
+
+    })
+
     // PATCH job status
     app.patch("/jobs", async (req, res) => {
       const id = req.query?.id;
